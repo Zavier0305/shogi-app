@@ -4,6 +4,10 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import Pusher from 'pusher-js';
 
+// ハードコードされたPusher鍵 (確実に動作させるため)
+const PUSHER_KEY = "8e3a1eb5fc73e7db907f";
+const PUSHER_CLUSTER = "ap3";
+
 export type RoomState = {
   kif: string;        // shogi.jsのKIF状態
   senteId: string;    // 先手のUUID
@@ -41,7 +45,7 @@ export function useShogiRoom(roomId: string) {
     return 'spectator';
   }, []);
 
-  // サーバー側のAPIを叩いて状態を配信する関数
+  // サーバー側のAPIを叩いて配信
   const emitState = useCallback(async (state: RoomState, event: string = 'sync_state') => {
     try {
       await fetch('/api/pusher', {
@@ -54,7 +58,7 @@ export function useShogiRoom(roomId: string) {
     }
   }, [roomId]);
 
-  // 状態更新と必要に応じた自動ロール割り当て
+  // 状態更新と自動ロール割り当て
   const handleStateUpdate = useCallback((receivedState: RoomState, cid: string) => {
     const current = roomStateRef.current;
     if (current && receivedState.timestamp <= current.timestamp) return;
@@ -80,21 +84,11 @@ export function useShogiRoom(roomId: string) {
   }, [determineRole, emitState]);
 
   useEffect(() => {
-    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
-    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
-
     if (!clientId) return;
 
-    // Pusherがない場合はローカル対局モード
-    if (!pusherKey || !pusherCluster) {
-      console.warn("Pusher keys are missing. Running in local mode.");
-      setRole('sente'); // ローカルならとりあえず先手
-      return;
-    }
-
-    // Pusher クライアント初期化
-    const pusher = new Pusher(pusherKey, {
-      cluster: pusherCluster,
+    // Pusher クライアント初期化 (ハードコードされた鍵を使用)
+    const pusher = new Pusher(PUSHER_KEY, {
+      cluster: PUSHER_CLUSTER,
     });
     pusherRef.current = pusher;
 
@@ -126,7 +120,7 @@ export function useShogiRoom(roomId: string) {
 
     return () => {
       clearTimeout(timer);
-      pusher.unsubscribe(`room-${roomId}`);
+      pusher.unsubscribe(channelName);
       pusher.disconnect();
     };
   }, [roomId, clientId, emitState, handleStateUpdate]);

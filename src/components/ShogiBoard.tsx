@@ -348,7 +348,7 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
       </div>
       {/* デバッグ情報 (開発完了後に削除可能) */}
       <div className="fixed bottom-2 right-2 text-[10px] p-2 bg-black/50 text-white rounded opacity-50 pointer-events-none">
-        ID: {clientId?.slice(0, 8)} | Role: {role} | Env: {process.env.NEXT_PUBLIC_PUSHER_KEY ? 'OK' : 'MISSING'}
+        ID: {clientId?.slice(0, 8)} | Role: {role} | Env: OK (Hardcoded)
       </div>
     </div>
   );

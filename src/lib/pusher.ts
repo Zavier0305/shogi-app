@@ -1,22 +1,22 @@
 import PusherServer from 'pusher';
 import PusherClient from 'pusher-js';
 
-// サーバーサイド用インスタンス
+// サーバーサイド用インスタンス (ハードコード設定で確実に動作)
 export const pusherServer = new PusherServer({
-  appId: process.env.PUSHER_APP_ID!,
-  key: process.env.NEXT_PUBLIC_PUSHER_KEY!,
-  secret: process.env.PUSHER_SECRET!,
-  cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+  appId: "2133530",
+  key: "8e3a1eb5fc73e7db907f",
+  secret: "caa8166664de7866a576",
+  cluster: "ap3",
   useTLS: true,
 });
 
-// クライアントサイド用インスタンス (Singletonパターン)
+// クライアントサイド用インスタンス
 let pusherClientInstance: PusherClient | null = null;
 
 export const getPusherClient = () => {
   if (!pusherClientInstance) {
-    pusherClientInstance = new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+    pusherClientInstance = new PusherClient("8e3a1eb5fc73e7db907f", {
+      cluster: "ap3",
     });
   }
   return pusherClientInstance;
