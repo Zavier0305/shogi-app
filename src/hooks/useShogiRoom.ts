@@ -108,7 +108,7 @@ export function useShogiRoom(roomId: string) {
       });
 
       return () => {
-        supabase.removeChannel(channel);
+        supabase?.removeChannel(channel);
       };
     } else {
       // フォールバック: BroadcastChannel (同一ブラウザの別タブ同期用)
