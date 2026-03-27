@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import { supabase } from '@/lib/supabaseClient';
+import Pusher from 'pusher-js';
 
 export type RoomState = {
   kif: string;        // shogi.jsのKIF状態
@@ -15,10 +15,14 @@ export function useShogiRoom(roomId: string) {
   const [clientId, setClientId] = useState<string>('');
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [role, setRole] = useState<'sente' | 'gote' | 'spectator'>('spectator');
-  const channelRef = useRef<any>(null);
-  const bcRef = useRef<BroadcastChannel | null>(null);
+  const pusherRef = useRef<Pusher | null>(null);
+  const roomStateRef = useRef<RoomState | null>(null);
 
-  // 1. クライアントIDの初期化
+  useEffect(() => {
+    roomStateRef.current = roomState;
+  }, [roomState]);
+
+  // クライアントIDの初期化
   useEffect(() => {
     let id = sessionStorage.getItem('shogi-client-id');
     if (!id) {
@@ -28,141 +32,115 @@ export function useShogiRoom(roomId: string) {
     setClientId(id);
   }, []);
 
-  const updateStateAndDetermineRole = useCallback((state: RoomState, cid: string) => {
-    setRoomState(state);
-    if (!state.senteId || state.senteId === cid) {
-      setRole('sente');
-    } else if (!state.goteId || state.goteId === cid) {
-      setRole('gote');
-    } else {
-      setRole('spectator');
-    }
+  // ロールの判定
+  const determineRole = useCallback((state: RoomState, cid: string) => {
+    if (state.senteId === cid) return 'sente';
+    if (state.goteId === cid) return 'gote';
+    if (!state.senteId) return 'sente';
+    if (!state.goteId) return 'gote';
+    return 'spectator';
   }, []);
 
-  // 状態の送信を行う関数
-  const broadcastState = useCallback((newState: Partial<RoomState>) => {
-    if (!clientId) return;
-    
-    setRoomState((prev) => {
-      const merged: RoomState = {
-        kif: newState.kif ?? prev?.kif ?? '',
-        senteId: newState.senteId !== undefined ? newState.senteId : (prev?.senteId || clientId),
-        goteId: newState.goteId !== undefined ? newState.goteId : (prev?.goteId || (prev?.senteId !== clientId ? clientId : '')),
-        timestamp: Date.now(),
-      };
-      
-      if (supabase && channelRef.current) {
-        channelRef.current.send({
-          type: 'broadcast',
-          event: 'sync_state',
-          payload: merged,
-        });
-      } else if (bcRef.current) {
-        bcRef.current.postMessage({ type: 'sync_state', payload: merged });
-      }
-      
-      updateStateAndDetermineRole(merged, clientId);
-      return merged;
-    });
-  }, [clientId, updateStateAndDetermineRole]);
-
-  // プロパティ初期化同期・Channel監視
-  useEffect(() => {
-    if (!clientId) return;
-
-    if (supabase) {
-      // Supabase Broadcastを使用
-      const channel = supabase.channel(`room:${roomId}`, {
-        config: { broadcast: { self: false } },
+  // サーバー側のAPIを叩いて状態を配信する関数
+  const emitState = useCallback(async (state: RoomState, event: string = 'sync_state') => {
+    try {
+      await fetch('/api/pusher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId, event, payload: state }),
       });
-      channelRef.current = channel;
-
-      channel.on('broadcast', { event: 'sync_state' }, ({ payload }) => {
-        if (payload.timestamp > (roomState?.timestamp || 0)) {
-          updateStateAndDetermineRole(payload as RoomState, clientId);
-        }
-      });
-      channel.on('broadcast', { event: 'request_state' }, () => {
-        // もし自分が先手で状態を持っていれば、相手に送る
-        if (role === 'sente' && roomState) {
-          channel.send({ type: 'broadcast', event: 'sync_state', payload: roomState });
-        }
-      });
-
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          // 入室時に状態を他クライアントへリクエスト
-          channel.send({ type: 'broadcast', event: 'request_state', payload: {} });
-          // すぐに返事が来なければ自分が先手として初期化
-          setTimeout(() => {
-             setRoomState((prev) => {
-                if (!prev) {
-                  const init: RoomState = { kif: '', senteId: clientId, goteId: '', timestamp: Date.now() };
-                  updateStateAndDetermineRole(init, clientId);
-                  return init;
-                }
-                return prev;
-             });
-          }, 1000);
-        }
-      });
-
-      return () => {
-        supabase?.removeChannel(channel);
-      };
-    } else {
-      // フォールバック: BroadcastChannel (同一ブラウザの別タブ同期用)
-      const bc = new BroadcastChannel(`shogi-room-${roomId}`);
-      bcRef.current = bc;
-
-      bc.onmessage = (event) => {
-        const { type, payload } = event.data;
-        if (type === 'sync_state') {
-          setRoomState((prev) => {
-            if (payload.timestamp > (prev?.timestamp || 0)) {
-              updateStateAndDetermineRole(payload, clientId);
-              return payload;
-            }
-            return prev;
-          });
-        } else if (type === 'request_state') {
-          // 状態のリクエストを受け取ったら返送
-          setRoomState((prev) => {
-            if (prev) bc.postMessage({ type: 'sync_state', payload: prev });
-            return prev;
-          });
-        }
-      };
-
-      // 入室リクエスト
-      bc.postMessage({ type: 'request_state' });
-      const timer = setTimeout(() => {
-        setRoomState((prev) => {
-          if (!prev) {
-            const init: RoomState = { kif: '', senteId: clientId, goteId: '', timestamp: Date.now() };
-            updateStateAndDetermineRole(init, clientId);
-            return init;
-          }
-          return prev;
-        });
-      }, 500);
-
-      return () => {
-         clearTimeout(timer);
-         bc.close();
-      };
+    } catch (err) {
+      console.error('Failed to emit state:', err);
     }
-  }, [roomId, clientId, role]);
+  }, [roomId]);
 
-  // 新規手の送信
+  // 状態更新と必要に応じた自動ロール割り当て
+  const handleStateUpdate = useCallback((receivedState: RoomState, cid: string) => {
+    const current = roomStateRef.current;
+    if (current && receivedState.timestamp <= current.timestamp) return;
+
+    let nextState = { ...receivedState };
+    const myRole = determineRole(nextState, cid);
+    setRole(myRole);
+
+    let needsBroadcast = false;
+    if (myRole === 'sente' && !nextState.senteId) {
+      nextState.senteId = cid;
+      needsBroadcast = true;
+    } else if (myRole === 'gote' && !nextState.goteId) {
+      nextState.goteId = cid;
+      needsBroadcast = true;
+    }
+
+    if (needsBroadcast) {
+      nextState.timestamp = Date.now();
+      emitState(nextState);
+    }
+    setRoomState(nextState);
+  }, [determineRole, emitState]);
+
+  useEffect(() => {
+    const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
+    const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
+
+    if (!clientId || !pusherKey || !pusherCluster) return;
+
+    // Pusher クライアント初期化
+    const pusher = new Pusher(pusherKey, {
+      cluster: pusherCluster,
+    });
+    pusherRef.current = pusher;
+
+    const channel = pusher.subscribe(`room-${roomId}`);
+    
+    // イベント受信設定
+    channel.bind('sync_state', (data: RoomState) => {
+      handleStateUpdate(data, clientId);
+    });
+
+    channel.bind('request_state', () => {
+      if (roomStateRef.current) {
+        emitState(roomStateRef.current);
+      }
+    });
+
+    // 接続成功時に自分の存在をアピール
+    const timer = setTimeout(() => {
+      emitState({} as RoomState, 'request_state');
+      
+      // 1.5秒待っても誰もいなければ自分が先手
+      setTimeout(() => {
+        if (!roomStateRef.current) {
+          const init: RoomState = { kif: '', senteId: clientId, goteId: '', timestamp: Date.now() };
+          setRoomState(init);
+          setRole('sente');
+          emitState(init);
+        }
+      }, 1500);
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      pusher.unsubscribe(`room-${roomId}`);
+      pusher.disconnect();
+    };
+  }, [roomId, clientId, emitState, handleStateUpdate]);
+
   const pushMove = useCallback((kif: string) => {
-    broadcastState({ kif });
-  }, [broadcastState]);
+    const current = roomStateRef.current;
+    if (!current || !clientId) return;
+    const next: RoomState = { ...current, kif, timestamp: Date.now() };
+    setRoomState(next);
+    emitState(next);
+  }, [clientId, emitState]);
   
-  // 投了・リセット
   const resetRoom = useCallback(() => {
-    broadcastState({ kif: '', timestamp: Date.now() });
-  }, [broadcastState]);
+    const current = roomStateRef.current;
+    if (!current || !clientId) return;
+    const next: RoomState = { ...current, kif: '', timestamp: Date.now() };
+    setRoomState(next);
+    emitState(next);
+  }, [clientId, emitState]);
 
   return { roomState, role, clientId, pushMove, resetRoom };
 }
