@@ -83,7 +83,14 @@ export function useShogiRoom(roomId: string) {
     const pusherKey = process.env.NEXT_PUBLIC_PUSHER_KEY;
     const pusherCluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER;
 
-    if (!clientId || !pusherKey || !pusherCluster) return;
+    if (!clientId) return;
+
+    // Pusherがない場合はローカル対局モード
+    if (!pusherKey || !pusherCluster) {
+      console.warn("Pusher keys are missing. Running in local mode.");
+      setRole('sente'); // ローカルならとりあえず先手
+      return;
+    }
 
     // Pusher クライアント初期化
     const pusher = new Pusher(pusherKey, {
@@ -91,24 +98,22 @@ export function useShogiRoom(roomId: string) {
     });
     pusherRef.current = pusher;
 
-    const channel = pusher.subscribe(`room-${roomId}`);
+    const channelName = `room-${roomId}`;
+    const channel = pusher.subscribe(channelName);
     
-    // イベント受信設定
     channel.bind('sync_state', (data: RoomState) => {
       handleStateUpdate(data, clientId);
     });
 
     channel.bind('request_state', () => {
-      if (roomStateRef.current) {
-        emitState(roomStateRef.current);
-      }
+      if (roomStateRef.current) emitState(roomStateRef.current);
     });
 
-    // 接続成功時に自分の存在をアピール
+    // 接続時にリクエストを飛ばす
     const timer = setTimeout(() => {
       emitState({} as RoomState, 'request_state');
       
-      // 1.5秒待っても誰もいなければ自分が先手
+      // 誰からも返事がなければ自分が先手
       setTimeout(() => {
         if (!roomStateRef.current) {
           const init: RoomState = { kif: '', senteId: clientId, goteId: '', timestamp: Date.now() };

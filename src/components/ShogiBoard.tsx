@@ -16,7 +16,7 @@ const PROMOTABLE: Record<string, string> = {
 };
 
 export default function ShogiBoard({ roomId }: { roomId: string }) {
-  const { roomState, role, pushMove, resetRoom } = useShogiRoom(roomId);
+  const { roomState, role, clientId, pushMove, resetRoom } = useShogiRoom(roomId);
   
   const [shogi] = useState(() => {
     const s = new Shogi();
@@ -345,6 +345,10 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
           <LogOut className="w-3.5 h-3.5" />
           <span>初めからやり直す (投了)</span>
         </button>
+      </div>
+      {/* デバッグ情報 (開発完了後に削除可能) */}
+      <div className="fixed bottom-2 right-2 text-[10px] p-2 bg-black/50 text-white rounded opacity-50 pointer-events-none">
+        ID: {clientId?.slice(0, 8)} | Role: {role} | Env: {process.env.NEXT_PUBLIC_PUSHER_KEY ? 'OK' : 'MISSING'}
       </div>
     </div>
   );
