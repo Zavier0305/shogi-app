@@ -9,8 +9,8 @@ export default async function RoomPage({
   const { id } = resolvedParams;
 
   return (
-    <div className="min-h-screen bg-[#faf8f5] flex flex-col items-center justify-center py-10 px-4">
-      <div className="max-w-7xl w-full flex justify-center">
+    <div className="min-h-screen bg-[#faf8f5] flex flex-col items-center justify-start py-4 sm:py-10 px-2 sm:px-4">
+      <div className="w-full max-w-full flex justify-center overflow-x-hidden">
         <ShogiBoard roomId={id} />
       </div>
     </div>

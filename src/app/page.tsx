@@ -16,8 +16,8 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-6 text-[#333]">
-      <div className="max-w-sm w-full bg-white p-12 shadow-sm border border-stone-200 rounded-sm">
+    <main className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 text-[#333]">
+      <div className="max-w-sm w-full bg-white p-8 sm:p-12 shadow-sm border border-stone-200 rounded-sm">
         <div className="flex flex-col items-center mb-10">
           <h1 className="text-2xl tracking-[0.3em] text-[#7a0000] font-bold mb-3">
             将棋
