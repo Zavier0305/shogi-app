@@ -19,6 +19,7 @@ export function useShogiRoom(roomId: string) {
   const [clientId, setClientId] = useState<string>('');
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [role, setRole] = useState<'sente' | 'gote' | 'spectator'>('spectator');
+  const [resignProposedBy, setResignProposedBy] = useState<string | null>(null);
   const pusherRef = useRef<Pusher | null>(null);
   const roomStateRef = useRef<RoomState | null>(null);
 
@@ -46,12 +47,12 @@ export function useShogiRoom(roomId: string) {
   }, []);
 
   // サーバー側のAPIを叩いて配信
-  const emitState = useCallback(async (state: RoomState, event: string = 'sync_state') => {
+  const emitState = useCallback(async (state: RoomState | {}, event: string = 'sync_state', extraPayload?: any) => {
     try {
       await fetch('/api/pusher', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roomId, event, payload: state }),
+        body: JSON.stringify({ roomId, event, payload: extraPayload || state }),
       });
     } catch (err) {
       console.error('Failed to emit state:', err);
@@ -103,6 +104,19 @@ export function useShogiRoom(roomId: string) {
       if (roomStateRef.current) emitState(roomStateRef.current);
     });
 
+    channel.bind('propose_resign', (data: { proposedBy: string }) => {
+      setResignProposedBy(data.proposedBy);
+    });
+
+    channel.bind('accept_resign', () => {
+      setResignProposedBy(null);
+    });
+
+    channel.bind('reject_resign', () => {
+      setResignProposedBy(null);
+      alert('投了/引き分けの提案が拒否されました。');
+    });
+
     // 接続時にリクエストを飛ばす
     const timer = setTimeout(() => {
       emitState({} as RoomState, 'request_state');
@@ -141,5 +155,19 @@ export function useShogiRoom(roomId: string) {
     emitState(next);
   }, [clientId, emitState]);
 
-  return { roomState, role, clientId, pushMove, resetRoom };
+  const proposeResign = useCallback(() => {
+    emitState({}, 'propose_resign', { proposedBy: clientId });
+  }, [clientId, emitState]);
+
+  const replyResign = useCallback((accept: boolean) => {
+    if (accept) {
+      emitState({}, 'accept_resign', {});
+      resetRoom();
+    } else {
+      emitState({}, 'reject_resign', {});
+    }
+    setResignProposedBy(null);
+  }, [emitState, resetRoom]);
+
+  return { roomState, role, clientId, pushMove, resetRoom, resignProposedBy, proposeResign, replyResign };
 }

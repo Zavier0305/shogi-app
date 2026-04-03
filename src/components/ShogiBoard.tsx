@@ -15,8 +15,32 @@ const PROMOTABLE: Record<string, string> = {
   FU: 'TO', KY: 'NY', KE: 'NK', GI: 'NG', KA: 'UM', HI: 'RY'
 };
 
+const isLegalMove = (shogiInfo: Shogi, fromX: number, fromY: number, toX: number, toY: number, promote = false): boolean => {
+    try {
+        const sfen = shogiInfo.toSFENString();
+        const testShogi = new Shogi();
+        testShogi.initializeFromSFENString(sfen);
+        testShogi.move(fromX, fromY, toX, toY, promote);
+        return !testShogi.isCheck(shogiInfo.turn);
+    } catch(e) {
+        return false;
+    }
+}
+
+const isLegalDrop = (shogiInfo: Shogi, toX: number, toY: number, kind: string): boolean => {
+    try {
+        const sfen = shogiInfo.toSFENString();
+        const testShogi = new Shogi();
+        testShogi.initializeFromSFENString(sfen);
+        testShogi.drop(toX, toY, kind as any, shogiInfo.turn);
+        return !testShogi.isCheck(shogiInfo.turn);
+    } catch(e) {
+        return false;
+    }
+}
+
 export default function ShogiBoard({ roomId }: { roomId: string }) {
-  const { roomState, role, clientId, pushMove, resetRoom } = useShogiRoom(roomId);
+  const { roomState, role, clientId, pushMove, resignProposedBy, proposeResign, replyResign } = useShogiRoom(roomId);
   
   const [shogi] = useState(() => {
     const s = new Shogi();
@@ -34,6 +58,10 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
     originalKind: string
   } | null>(null);
 
+  const [isCheck, setIsCheck] = useState(false);
+  const [isCheckmate, setIsCheckmate] = useState(false);
+  const [winner, setWinner] = useState<'sente'|'gote'|null>(null);
+
   useEffect(() => {
     if (roomState?.kif) {
       try {
@@ -44,19 +72,73 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
       }
     } else {
       shogi.initialize();
+      setIsCheckmate(false);
+      setWinner(null);
     }
     setBoardVersion(v => v + 1);
     setSelectedPos(null);
     setSelectedHand(null);
   }, [roomState?.kif, shogi]);
 
+  useEffect(() => {
+    const currentTurn = shogi.turn;
+    const currentCheck = shogi.isCheck(currentTurn);
+    setIsCheck(currentCheck);
+
+    // 勝利（詰み）判定
+    let hasLegalMove = false;
+    for (let x = 1; x <= 9; x++) {
+      for (let y = 1; y <= 9; y++) {
+        const piece = shogi.get(x, y);
+        if (piece && piece.color === currentTurn) {
+          const moves = shogi.getMovesFrom(x, y);
+          for (const m of moves) {
+            if (isLegalMove(shogi, x, y, m.to.x, m.to.y, false) ||
+               (PROMOTABLE[piece.kind] && isLegalMove(shogi, x, y, m.to.x, m.to.y, true))) {
+              hasLegalMove = true;
+              break;
+            }
+          }
+        }
+        if (hasLegalMove) break;
+      }
+      if (hasLegalMove) break;
+    }
+
+    if (!hasLegalMove) {
+      const hand = shogi.getHandsSummary(currentTurn);
+      for (const kind of Object.keys(hand)) {
+        if ((hand as any)[kind] > 0) {
+          const drops = shogi.getDropsBy(currentTurn);
+          for (const d of drops) {
+            if (d.kind === kind) {
+                if (isLegalDrop(shogi, d.to.x, d.to.y, d.kind!)) {
+                   hasLegalMove = true;
+                   break;
+                }
+            }
+          }
+        }
+        if (hasLegalMove) break;
+      }
+    }
+
+    if (!hasLegalMove && boardVersion > 1) {
+       setIsCheckmate(true);
+       setWinner(currentTurn === SColor.Black ? 'gote' : 'sente');
+    } else {
+       setIsCheckmate(false);
+       setWinner(null);
+    }
+  }, [boardVersion, shogi]);
+
   const isMyTurn = useMemo(() => {
-    if (role === 'spectator') return false;
+    if (role === 'spectator' || isCheckmate) return false;
     const currentTurn = shogi.turn; 
     if (role === 'sente' && currentTurn === SColor.Black) return true;
     if (role === 'gote' && currentTurn === SColor.White) return true;
     return false;
-  }, [role, shogi.turn, boardVersion]);
+  }, [role, shogi.turn, boardVersion, isCheckmate]);
 
   const commitLocalMove = useCallback(() => {
     const sfen = shogi.toSFENString();
@@ -69,6 +151,11 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
 
     if (selectedHand) {
       if (!shogi.get(x, y)) {
+        if (!isLegalDrop(shogi, x, y, selectedHand.kind)) {
+            // 非合法手（王手放置など）
+            setSelectedHand(null);
+            return;
+        }
         try {
           shogi.drop(x, y, selectedHand.kind as any, selectedHand.color);
           commitLocalMove();
@@ -100,14 +187,37 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
         const validMove = moves.find(m => m.to.x === x && m.to.y === y);
 
         if (validMove) {
+          const legalUnpromoted = isLegalMove(shogi, selectedPos.x, selectedPos.y, x, y, false);
+          const legalPromoted = canPromote ? isLegalMove(shogi, selectedPos.x, selectedPos.y, x, y, true) : false;
+
+          if (!legalUnpromoted && !legalPromoted) {
+             // 王手放置などの非合法手
+             setSelectedPos(null);
+             return;
+          }
+
           if (canPromote) {
-            setPromotionPrompt({
-              from: selectedPos,
-              to: {x, y},
-              originalKind: pKind
-            });
-            setSelectedPos(null);
-            return;
+             if (legalPromoted && !legalUnpromoted) {
+                 // 強制成り (桂馬が奥まで行った場合など)
+                 try {
+                   shogi.move(selectedPos.x, selectedPos.y, x, y, true);
+                   commitLocalMove();
+                 } catch(e) {}
+             } else if (!legalPromoted && legalUnpromoted) {
+                 // 物理的に成れない（ないはずだが念のため）
+                 try {
+                   shogi.move(selectedPos.x, selectedPos.y, x, y, false);
+                   commitLocalMove();
+                 } catch(e) {}
+             } else {
+                setPromotionPrompt({
+                  from: selectedPos,
+                  to: {x, y},
+                  originalKind: pKind
+                });
+             }
+             setSelectedPos(null);
+             return;
           } else {
             try {
               shogi.move(selectedPos.x, selectedPos.y, x, y, false);
@@ -222,8 +332,16 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
       </div>
 
       {/* 盤面領域 */}
-      <div className="relative w-full sm:w-auto flex justify-center px-1 sm:px-0">
-        <div className="bg-white p-2 sm:p-6 shadow-sm border border-stone-200 rounded-sm w-full sm:w-auto overflow-hidden">
+      <div className="relative w-full sm:w-auto flex flex-col justify-center px-1 sm:px-0">
+        
+        {/* 王手表示 */}
+        {isCheck && !isCheckmate && (
+           <div className="absolute top-[-30px] left-0 right-0 text-center animate-pulse z-10 pointer-events-none">
+              <span className="bg-[#7a0000] text-white px-4 py-1 text-sm font-bold tracking-[0.3em] rounded-sm shadow-md">王手</span>
+           </div>
+        )}
+
+        <div className="bg-white p-2 sm:p-6 shadow-sm border border-stone-200 rounded-sm w-full sm:w-auto overflow-hidden relative">
           <div 
             className={clsx(
               "grid gap-[1px] bg-[var(--color-shogi-line)] border-[1px] border-[var(--color-shogi-line)] transition-transform duration-700 relative",
@@ -231,7 +349,7 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
             )}
             style={{ 
               gridTemplateColumns: 'repeat(9, 1fr)',
-              width: 'min(calc(100vw - 12px * 2 - 8px * 2), 460px)', // スマホでのマージン考慮
+              width: 'min(calc(100vw - 12px * 2 - 8px * 2), 460px)', 
               margin: '0 auto'
             }}
           >
@@ -243,7 +361,17 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
                 let isMovable = false;
                 if (selectedPos && !selectedHand) {
                   const moves = shogi.getMovesFrom(selectedPos.x, selectedPos.y);
-                  if (moves.some(m => m.to.x === x && m.to.y === y)) isMovable = true;
+                  if (moves.some(m => m.to.x === x && m.to.y === y)) {
+                     // 自分の王様が取られる手は非合法としてフィルタ
+                     if (isLegalMove(shogi, selectedPos.x, selectedPos.y, x, y, false) ||
+                         isLegalMove(shogi, selectedPos.x, selectedPos.y, x, y, true)) {
+                       isMovable = true;
+                     }
+                  }
+                } else if (selectedHand) {
+                  if (!piece && isLegalDrop(shogi, x, y, selectedHand.kind)) {
+                      isMovable = true;
+                  }
                 }
 
                 return (
@@ -253,7 +381,7 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
                     className={clsx(
                       "w-full aspect-[1/1.06] bg-[var(--color-shogi-board)] hover:bg-[#dfd3bc] transition-colors flex items-center justify-center relative cursor-pointer",
                       isSelected && "bg-[#d3c5a9]",
-                      isMovable && "after:content-[''] after:absolute after:w-2 after:h-2 after:bg-stone-500/30 after:rounded-full"
+                      isMovable && "after:content-[''] after:absolute after:w-2 after:h-2 after:bg-stone-500/50 after:rounded-full"
                     )}
                   >
                     {piece && (
@@ -271,6 +399,18 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
               });
             })}
           </div>
+
+          {/* 詰み（終了）オーバーレイ */}
+          {isCheckmate && (
+            <div className="absolute inset-0 bg-[#faf8f5]/80 backdrop-blur-[2px] z-40 flex flex-col items-center justify-center">
+               <div className="bg-white px-8 py-6 border border-stone-200 shadow-lg text-center transform scale-110">
+                 <h2 className="text-2xl font-bold tracking-[0.2em] text-[#7a0000] mb-2 font-serif">詰み</h2>
+                 <p className="text-stone-600 text-sm tracking-widest">
+                   {winner === 'sente' ? '先手' : '後手'} ({winner === role ? 'あなた' : '相手'}) の勝利です
+                 </p>
+               </div>
+            </div>
+          )}
         </div>
 
         {/* 成りダイアログ */}
@@ -304,7 +444,25 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
 
       {/* サイドパネル（情報・操作） */}
       <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-full sm:max-w-sm font-sans px-2 sm:px-0 xl:mt-0">
-        <div className="bg-white border border-stone-200 p-5 sm:p-6 shadow-sm rounded-sm">
+        <div className="bg-white border border-stone-200 p-5 sm:p-6 shadow-sm rounded-sm relative">
+          
+          {/* 投了提案ダイアログ */}
+          {resignProposedBy && resignProposedBy !== clientId && (
+            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-4 text-center border border-yellow-400">
+               <p className="text-sm text-stone-700 tracking-widest mb-4">相手から<br/>投了・終了の提案が<br/>来ています</p>
+               <div className="flex gap-2 w-full">
+                 <button onClick={() => replyResign(true)} className="flex-1 bg-[#7a0000] text-white py-2 text-xs tracking-widest shadow-sm">同意する</button>
+                 <button onClick={() => replyResign(false)} className="flex-1 bg-stone-100 text-stone-600 py-2 text-xs tracking-widest border border-stone-200">拒否する</button>
+               </div>
+            </div>
+          )}
+
+          {resignProposedBy && resignProposedBy === clientId && (
+            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-4 text-center border border-stone-200">
+               <p className="text-sm text-stone-500 tracking-widest">相手の応答を<br/>待っています...</p>
+            </div>
+          )}
+
           <div className="flex justify-between items-center mb-4 sm:mb-6">
             <h2 className="text-xs sm:text-sm tracking-widest text-[#7a0000] font-bold">
               ID: {roomId}
@@ -331,7 +489,8 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
               <span className={clsx(
                 "px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs tracking-widest rounded-sm transition-colors",
                 shogi.turn === SColor.Black ? "bg-stone-800 text-white" : "bg-stone-200 text-stone-800",
-                !isMyTurn && role !== 'spectator' && "opacity-60"
+                !isMyTurn && role !== 'spectator' && "opacity-60",
+                isCheckmate && "hidden"
               )}>
                 {shogi.turn === SColor.Black ? '先手の手番' : '後手の手番'}
               </span>
@@ -355,12 +514,12 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
         </div>
 
         <button 
-          onClick={resetRoom}
-          disabled={role === 'spectator'}
+          onClick={proposeResign}
+          disabled={role === 'spectator' || isCheckmate || !!resignProposedBy}
           className="w-full flex items-center justify-center gap-2 py-3 sm:py-3.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-500 disabled:opacity-30 transition tracking-widest text-[10px] sm:text-xs rounded-sm mb-4"
         >
           <LogOut className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
-          <span>初めからやり直す (投了)</span>
+          <span>投了 / 終了を提案</span>
         </button>
       </div>
 
