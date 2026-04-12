@@ -5,6 +5,7 @@ import { useShogiRoom } from '@/hooks/useShogiRoom';
 import { Shogi, Kind, Color as SColor } from 'shogi.js';
 import { ClipboardCopy, LogOut } from 'lucide-react';
 import clsx from 'clsx';
+import GameResultModal from './GameResultModal';
 
 const KIND_KANJI: Record<string, string> = {
   FU: '歩', KY: '香', KE: '桂', GI: '銀', KI: '金', KA: '角', HI: '飛', OU: '王',
@@ -40,8 +41,14 @@ const isLegalDrop = (shogiInfo: Shogi, toX: number, toY: number, kind: string): 
 }
 
 export default function ShogiBoard({ roomId }: { roomId: string }) {
-  const { roomState, role, clientId, pushMove, resignProposedBy, proposeResign, replyResign } = useShogiRoom(roomId);
+  const { 
+    roomState, role, clientId, pushMove, resetRoom, 
+    resignProposedBy, proposeResign, replyResign, gameResult, notifyGameOver,
+    opponentLeft
+  } = useShogiRoom(roomId);
   
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [localGameResult, setLocalGameResult] = useState<{ winner: 'sente' | 'gote'; reason: '詰み' | '投了' } | null>(null);
   const [shogi] = useState(() => {
     const s = new Shogi();
     s.initialize();
@@ -74,6 +81,8 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
       shogi.initialize();
       setIsCheckmate(false);
       setWinner(null);
+      setLocalGameResult(null);
+      setShowResultModal(false);
     }
     setBoardVersion(v => v + 1);
     setSelectedPos(null);
@@ -125,12 +134,25 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
 
     if (!hasLegalMove && boardVersion > 1) {
        setIsCheckmate(true);
-       setWinner(currentTurn === SColor.Black ? 'gote' : 'sente');
+       const win = currentTurn === SColor.Black ? 'gote' : 'sente';
+       setWinner(win);
+       setLocalGameResult({ winner: win, reason: '詰み' });
+       setShowResultModal(true);
+       // 相手にも通知する
+       notifyGameOver(win, '詰み');
     } else {
        setIsCheckmate(false);
        setWinner(null);
     }
   }, [boardVersion, shogi]);
+
+  // 外部(Hook)からのゲーム終了通知を監視 (投了など)
+  useEffect(() => {
+    if (gameResult) {
+      setLocalGameResult(gameResult);
+      setShowResultModal(true);
+    }
+  }, [gameResult]);
 
   const isMyTurn = useMemo(() => {
     if (role === 'spectator' || isCheckmate) return false;
@@ -140,10 +162,19 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
     return false;
   }, [role, shogi.turn, boardVersion, isCheckmate]);
 
-  const commitLocalMove = useCallback(() => {
-    // 駒音の再生
-    const audio = new Audio('/striking_a_small_stone.mp3');
-    audio.play().catch(e => console.log("Audio play failed:", e));
+  const commitLocalMove = useCallback((moveType: 'move' | 'check' | 'checkmate' = 'move') => {
+    // 効果音の再生
+    let soundFile = '/striking_a_small_stone.mp3';
+    if (moveType === 'check') soundFile = '/check.mp3';
+    if (moveType === 'checkmate') soundFile = '/checkmate.mp3';
+
+    const audio = new Audio(soundFile);
+    audio.play().catch(e => {
+      // 指定された音がなければデフォルトを再生
+      if (soundFile !== '/striking_a_small_stone.mp3') {
+        new Audio('/striking_a_small_stone.mp3').play().catch(() => {});
+      }
+    });
 
     const sfen = shogi.toSFENString();
     pushMove(sfen);
@@ -162,7 +193,10 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
         }
         try {
           shogi.drop(x, y, selectedHand.kind as any, selectedHand.color);
-          commitLocalMove();
+          
+          // 王手・詰み判定を移動直後に行うため一時的に確認
+          const isCapturingCheck = shogi.isCheck(shogi.turn); // 次の手番が王手か
+          commitLocalMove(isCapturingCheck ? 'check' : 'move');
         } catch (e) {
           console.error("Invalid drop");
         }
@@ -205,13 +239,15 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
                  // 強制成り (桂馬が奥まで行った場合など)
                  try {
                    shogi.move(selectedPos.x, selectedPos.y, x, y, true);
-                   commitLocalMove();
+                   const isCapturingCheck = shogi.isCheck(shogi.turn);
+                   commitLocalMove(isCapturingCheck ? 'check' : 'move');
                  } catch(e) {}
              } else if (!legalPromoted && legalUnpromoted) {
                  // 物理的に成れない（ないはずだが念のため）
                  try {
                    shogi.move(selectedPos.x, selectedPos.y, x, y, false);
-                   commitLocalMove();
+                   const isCapturingCheck = shogi.isCheck(shogi.turn);
+                   commitLocalMove(isCapturingCheck ? 'check' : 'move');
                  } catch(e) {}
              } else {
                 setPromotionPrompt({
@@ -225,7 +261,8 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
           } else {
             try {
               shogi.move(selectedPos.x, selectedPos.y, x, y, false);
-              commitLocalMove();
+              const isCapturingCheck = shogi.isCheck(shogi.turn);
+              commitLocalMove(isCapturingCheck ? 'check' : 'move');
             } catch (e) {
               console.error("Invalid move", e);
             }
@@ -257,7 +294,8 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
         promotionPrompt.to.y, 
         promote
       );
-      commitLocalMove();
+      const isCapturingCheck = shogi.isCheck(shogi.turn);
+      commitLocalMove(isCapturingCheck ? 'check' : 'move');
     } catch(e) {
       console.error(e);
     }
@@ -345,15 +383,19 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
            </div>
         )}
 
-        <div className="bg-white p-2 sm:p-6 shadow-sm border border-stone-200 rounded-sm w-full sm:w-auto overflow-hidden relative">
+        <div className="bg-[#c29b4a] p-1 sm:p-6 shadow-[0_8px_30px_rgb(0,0,0,0.12)] border-b-4 border-r-4 border-[#a6823d] rounded-sm w-full sm:w-auto overflow-hidden relative">
+          
+          {/* 木目オーバーレイ */}
+          <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 40px, #000 40px, #000 41px)' }}></div>
+          
           <div 
             className={clsx(
-              "grid gap-[1px] bg-[var(--color-shogi-line)] border-[1px] border-[var(--color-shogi-line)] transition-transform duration-700 relative",
+              "grid gap-[1px] bg-[var(--color-shogi-line)] border-[1px] border-[var(--color-shogi-line)] transition-transform duration-700 relative z-0",
               role === 'gote' && "rotate-180"
             )}
             style={{ 
               gridTemplateColumns: 'repeat(9, 1fr)',
-              width: 'min(calc(100vw - 12px * 2 - 8px * 2), 460px)', 
+              width: 'min(calc(100vw - 8px), 480px)', 
               margin: '0 auto'
             }}
           >
@@ -391,7 +433,7 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
                     {piece && (
                       <div className={clsx(
                         "flex items-center justify-center font-bold tracking-tighter w-[92%] h-[94%] rounded-sm",
-                        "bg-[var(--color-shogi-piece)] border-b-2 border-r-[1px] border-[#d8d1c6] shadow-sm font-serif select-none",
+                        "bg-[var(--color-shogi-piece)] border-b-[3px] border-r-[2px] border-[#d8d1c6] shadow-[1px_2px_4px_rgba(0,0,0,0.1)] font-serif select-none transition-transform active:scale-95",
                         piece.color === SColor.Black ? "text-stone-800" : "text-stone-800 rotate-180",
                         (piece.kind === 'TO' || piece.kind === 'NY' || piece.kind === 'NK' || piece.kind === 'NG' || piece.kind === 'UM' || piece.kind === 'RY') ? "!text-[#a32222]" : ""
                       )} style={{ fontSize: 'clamp(0.9rem, 4vw, 1.5rem)' }}>
@@ -526,6 +568,36 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
           <span>投了 / 終了を提案</span>
         </button>
       </div>
+
+      {/* 接続切れオーバーレイ */}
+      {opponentLeft && !gameResult && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-white/95 backdrop-blur-sm animate-in fade-in duration-500">
+          <div className="p-8 sm:p-12 flex flex-col items-center">
+            <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mb-6 border border-stone-100">
+               <div className="w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
+            </div>
+            <h2 className="text-stone-800 text-lg sm:text-xl font-bold tracking-[0.2em] mb-4">相手の接続が切れました</h2>
+            <p className="text-stone-400 text-xs sm:text-sm tracking-widest mb-10 leading-relaxed text-center">
+              通信が遮断されたか、<br/>相手が退席しました。
+            </p>
+            <a 
+              href="/"
+              className="px-10 py-3.5 bg-stone-800 hover:bg-black text-white text-xs tracking-[0.3em] font-bold rounded-sm transition-all shadow-md active:scale-95 uppercase"
+            >
+              タイトルに戻る
+            </a>
+          </div>
+        </div>
+      )}
+
+      {/* Game Result Modal */}
+      {showResultModal && localGameResult && (
+        <GameResultModal 
+          winner={localGameResult.winner}
+          reason={localGameResult.reason}
+          onClose={() => setShowResultModal(false)}
+        />
+      )}
 
       {/* デバッグ情報 */}
       <div className="fixed bottom-2 right-2 text-[9px] sm:text-[10px] p-1.5 sm:p-2 bg-black/50 text-white rounded opacity-40 pointer-events-none z-10">

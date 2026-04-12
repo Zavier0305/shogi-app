@@ -20,12 +20,19 @@ export function useShogiRoom(roomId: string) {
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [role, setRole] = useState<'sente' | 'gote' | 'spectator'>('spectator');
   const [resignProposedBy, setResignProposedBy] = useState<string | null>(null);
+  const [gameResult, setGameResult] = useState<{ winner: 'sente' | 'gote'; reason: '詰み' | '投了' } | null>(null);
+  const [opponentLeft, setOpponentLeft] = useState<boolean>(false);
   const pusherRef = useRef<Pusher | null>(null);
   const roomStateRef = useRef<RoomState | null>(null);
+  const roleRef = useRef<'sente' | 'gote' | 'spectator'>('spectator');
 
   useEffect(() => {
     roomStateRef.current = roomState;
   }, [roomState]);
+
+  useEffect(() => {
+    roleRef.current = role;
+  }, [role]);
 
   // クライアントIDの初期化
   useEffect(() => {
@@ -41,9 +48,7 @@ export function useShogiRoom(roomId: string) {
   const determineRole = useCallback((state: RoomState, cid: string) => {
     if (state.senteId === cid) return 'sente';
     if (state.goteId === cid) return 'gote';
-    if (!state.senteId) return 'sente';
-    if (!state.goteId) return 'gote';
-    return 'spectator';
+    return null; // まだ割り当てられていない
   }, []);
 
   // サーバー側のAPIを叩いて配信
@@ -62,38 +67,51 @@ export function useShogiRoom(roomId: string) {
   // 状態更新と自動ロール割り当て
   const handleStateUpdate = useCallback((receivedState: RoomState, cid: string) => {
     const current = roomStateRef.current;
-    if (current && receivedState.timestamp <= current.timestamp) return;
+    
+    // 自分ですでに進めた状態（タイムスタンプが新しい）がある場合は、古い更新を無視
+    if (current && receivedState.timestamp < current.timestamp) return;
 
     let nextState = { ...receivedState };
-    const myRole = determineRole(nextState, cid);
-    setRole(myRole);
-
-    let needsBroadcast = false;
-    if (myRole === 'sente' && !nextState.senteId) {
-      nextState.senteId = cid;
-      needsBroadcast = true;
-    } else if (myRole === 'gote' && !nextState.goteId) {
-      nextState.goteId = cid;
-      needsBroadcast = true;
-    }
-
-    if (needsBroadcast) {
-      nextState.timestamp = Date.now();
-      emitState(nextState);
-    }
+    const myExistingRole = determineRole(nextState, cid);
+    
+    // すでに役割が決まっている（または観戦でない）状態から、観戦に戻るのを防ぐ
+    setRole(prev => {
+      if (myExistingRole) return myExistingRole;
+      
+      // まだ役割が決まっていない場合、空きがあれば入る
+      if (prev === 'spectator') {
+        if (!nextState.senteId) {
+          nextState.senteId = cid;
+          nextState.timestamp = Date.now();
+          emitState(nextState);
+          return 'sente';
+        } else if (!nextState.goteId && nextState.senteId !== cid) {
+          nextState.goteId = cid;
+          nextState.timestamp = Date.now();
+          emitState(nextState);
+          return 'gote';
+        }
+      }
+      return prev;
+    });
+    
     setRoomState(nextState);
-  }, [determineRole, emitState]);
+  }, [determineRole, emitState]); // roleを依存関係から外し、setRoleの関数型更新を使用関数型更新を使用するように変更
 
   useEffect(() => {
     if (!clientId) return;
 
-    // Pusher クライアント初期化 (ハードコードされた鍵を使用)
+    // Pusher クライアント初期化
     const pusher = new Pusher(PUSHER_KEY, {
       cluster: PUSHER_CLUSTER,
+      authEndpoint: '/api/pusher/auth',
+      auth: {
+        params: { user_id: clientId }
+      }
     });
     pusherRef.current = pusher;
 
-    const channelName = `room-${roomId}`;
+    const channelName = `presence-room-${roomId}`;
     const channel = pusher.subscribe(channelName);
     
     channel.bind('sync_state', (data: RoomState) => {
@@ -117,23 +135,43 @@ export function useShogiRoom(roomId: string) {
       alert('投了/引き分けの提案が拒否されました。');
     });
 
-    // 接続時にリクエストを飛ばす
-    const timer = setTimeout(() => {
+    channel.bind('game_over', (data: { winner: 'sente' | 'gote'; reason: '詰み' | '投了' }) => {
+      setGameResult(data);
+    });
+
+    channel.bind('pusher:subscription_succeeded', (members: any) => {
+      // 接続時に現在の状態をリクエスト
       emitState({} as RoomState, 'request_state');
       
-      // 誰からも返事がなければ自分が先手
-      setTimeout(() => {
-        if (!roomStateRef.current) {
-          const init: RoomState = { kif: '', senteId: clientId, goteId: '', timestamp: Date.now() };
-          setRoomState(init);
-          setRole('sente');
-          emitState(init);
-        }
-      }, 1500);
-    }, 500);
+      // 自分が最初の1人目なら、即座に先手として初期化
+      if (members.count === 1) {
+        const init: RoomState = { kif: '', senteId: clientId, goteId: '', timestamp: Date.now() };
+        setRoomState(init);
+        setRole('sente');
+        emitState(init);
+      }
+    });
+
+    channel.bind('pusher:member_added', (member: any) => {
+       const current = roomStateRef.current;
+       // 自分が先手で、新しく誰か入ってきたがまだ後手が決まっていない場合
+       if (current && current.senteId === clientId && !current.goteId) {
+         emitState(current); // 現在の状態を再送して、相手に先手がいることを知らせる
+       }
+       // 相手が戻ってきた場合はフラグを折る
+       setOpponentLeft(false);
+    });
+
+    channel.bind('pusher:member_removed', (member: any) => {
+       // シンプルに「自分以外の誰かがいなくなった」かつ「今は自分一人だけ（かつ観戦者でない）」なら相手が消えたとみなす
+       // PresenceChannelとして扱うためにキャスト
+       const presenceChannel = channel as any;
+       if (presenceChannel.members && presenceChannel.members.count === 1 && roleRef.current !== 'spectator') {
+         setOpponentLeft(true);
+       }
+    });
 
     return () => {
-      clearTimeout(timer);
       pusher.unsubscribe(channelName);
       pusher.disconnect();
     };
@@ -161,13 +199,20 @@ export function useShogiRoom(roomId: string) {
 
   const replyResign = useCallback((accept: boolean) => {
     if (accept) {
-      emitState({}, 'accept_resign', {});
-      resetRoom();
+      // 投了した側の反対が勝者
+      const winner = resignProposedBy === roomStateRef.current?.senteId ? 'gote' : 'sente';
+      emitState({}, 'game_over', { winner, reason: '投了' });
+      setGameResult({ winner, reason: '投了' });
     } else {
       emitState({}, 'reject_resign', {});
     }
     setResignProposedBy(null);
-  }, [emitState, resetRoom]);
+  }, [emitState, resignProposedBy]);
 
-  return { roomState, role, clientId, pushMove, resetRoom, resignProposedBy, proposeResign, replyResign };
+  const notifyGameOver = useCallback((winner: 'sente' | 'gote', reason: '詰み' | '投了') => {
+    emitState({}, 'game_over', { winner, reason });
+    setGameResult({ winner, reason });
+  }, [emitState]);
+
+  return { roomState, role, clientId, pushMove, resetRoom, resignProposedBy, proposeResign, replyResign, gameResult, notifyGameOver, opponentLeft };
 }

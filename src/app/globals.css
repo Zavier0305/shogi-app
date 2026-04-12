@@ -1,9 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-  --color-shogi-board: #e8dcc4;     /* 無印風の明るい木・クラフト紙の色 */
-  --color-shogi-line: #b3a58d;      /* 柔らかい茶系の線 */
-  --color-shogi-piece: #f9f6f0;     /* 無漂白のコットン・生成り色 */
+  --color-shogi-board: #dcb35c;     /* より深みのある木（榧 かや）の色 */
+  --color-shogi-line: #5d4a32;      /* 落ち着いた墨色に近い茶 */
+  --color-shogi-piece: #fdfaf5;     /* わずかに光沢を感じる白木の色 */
+  --color-shogi-wood-grain: rgba(0, 0, 0, 0.05); /* 木目表現用 */
 }
 
 @layer base {

@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Pusherを通じて他のクライアントにイベントを送信
-    await pusherServer.trigger(`room-${roomId}`, event, payload);
+    await pusherServer.trigger(`presence-room-${roomId}`, event, payload);
 
     return NextResponse.json({ success: true });
   } catch (error) {
