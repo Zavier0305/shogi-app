@@ -141,6 +141,10 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
   }, [role, shogi.turn, boardVersion, isCheckmate]);
 
   const commitLocalMove = useCallback(() => {
+    // 駒音の再生
+    const audio = new Audio('/striking_a_small_stone.mp3');
+    audio.play().catch(e => console.log("Audio play failed:", e));
+
     const sfen = shogi.toSFENString();
     pushMove(sfen);
     setBoardVersion(v => v + 1);
