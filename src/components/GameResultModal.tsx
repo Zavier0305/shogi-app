@@ -16,25 +16,25 @@ export default function GameResultModal({ winner, reason, onClose, onRematch }: 
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px] animate-in fade-in duration-500">
-      <div className="bg-white w-full max-w-sm rounded-sm shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] border border-stone-100 overflow-hidden animate-in zoom-in-95 duration-300">
+      <div className="meishi-card meishi-fade-in w-full max-w-sm shadow-[0_25px_50px_-12px_rgba(43,36,32,0.3)] overflow-hidden">
         {/* Header Decor */}
-        <div className="h-1.5 bg-[#7a0000] w-full" />
-        
+        <div className="h-1.5 bg-[var(--maroon)] w-full" />
+
         <div className="p-8 sm:p-10 flex flex-col items-center">
-          <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mb-6 border border-stone-100">
-            <Trophy className="w-8 h-8 text-[#7a0000] opacity-80" />
+          <div className="w-16 h-16 bg-[var(--bg)] rounded-full flex items-center justify-center mb-6 border border-[var(--border)]">
+            <Trophy className="w-8 h-8 text-[var(--maroon)] opacity-80" />
           </div>
-          
-          <h2 className="text-stone-400 text-[10px] tracking-[0.4em] uppercase mb-2">対局終了</h2>
-          
+
+          <h2 className="text-[var(--ink-faint)] text-[10px] tracking-[0.4em] uppercase mb-2">対局終了</h2>
+
           <div className="flex flex-col items-center mb-10">
-            <span className="text-2xl font-bold text-stone-800 tracking-[0.1em] mb-2">
+            <span className="[font-family:var(--font-heading)] text-2xl font-bold text-[var(--ink)] tracking-[0.1em] mb-2">
               {winner === 'sente' ? '先手' : '後手'}の勝ち
             </span>
             <div className="flex items-center gap-2">
-              <div className="h-px w-4 bg-stone-200" />
-              <span className="text-xs text-[#7a0000] font-medium tracking-widest">{reason}</span>
-              <div className="h-px w-4 bg-stone-200" />
+              <div className="h-px w-4 bg-[var(--gold-soft)]" />
+              <span className="text-xs text-[var(--maroon)] font-medium tracking-widest">{reason}</span>
+              <div className="h-px w-4 bg-[var(--gold-soft)]" />
             </div>
           </div>
 
@@ -42,7 +42,7 @@ export default function GameResultModal({ winner, reason, onClose, onRematch }: 
             {onRematch && (
               <button
                 onClick={onRematch}
-                className="flex items-center justify-center gap-3 w-full bg-[#7a0000] hover:bg-[#660000] text-white py-3.5 rounded-sm transition-all duration-300 text-xs font-bold tracking-[0.2em] shadow-[0_4px_12px_rgba(122,0,0,0.15)] active:scale-[0.98]"
+                className="btn-pill-primary flex items-center justify-center gap-3 w-full py-3.5 text-xs font-bold tracking-[0.2em] active:scale-[0.98]"
               >
                 <RotateCcw className="w-4 h-4" />
                 もう一度対局する
@@ -53,8 +53,8 @@ export default function GameResultModal({ winner, reason, onClose, onRematch }: 
               href="/"
               className={
                 onRematch
-                  ? "flex items-center justify-center gap-3 w-full bg-white hover:bg-stone-50 text-stone-500 border border-stone-200 py-3.5 rounded-sm transition-all duration-300 text-xs tracking-[0.2em] active:scale-[0.98]"
-                  : "flex items-center justify-center gap-3 w-full bg-[#7a0000] hover:bg-[#660000] text-white py-3.5 rounded-sm transition-all duration-300 text-xs font-bold tracking-[0.2em] shadow-[0_4px_12px_rgba(122,0,0,0.15)] active:scale-[0.98]"
+                  ? "btn-pill flex items-center justify-center gap-3 w-full py-3.5 text-xs tracking-[0.2em] active:scale-[0.98]"
+                  : "btn-pill-primary flex items-center justify-center gap-3 w-full py-3.5 text-xs font-bold tracking-[0.2em] active:scale-[0.98]"
               }
             >
               <Home className="w-4 h-4" />
@@ -63,16 +63,16 @@ export default function GameResultModal({ winner, reason, onClose, onRematch }: 
 
             <button
               onClick={onClose}
-              className="flex items-center justify-center gap-3 w-full bg-white hover:bg-stone-50 text-stone-500 border border-stone-200 py-3.5 rounded-sm transition-all duration-300 text-xs tracking-[0.2em] active:scale-[0.98]"
+              className="btn-pill flex items-center justify-center gap-3 w-full py-3.5 text-xs tracking-[0.2em] active:scale-[0.98]"
             >
               <ZoomIn className="w-4 h-4" />
               終局図を見る
             </button>
           </div>
         </div>
-        
-        <div className="bg-stone-50 py-3 flex justify-center border-t border-stone-50">
-          <p className="text-[9px] text-stone-300 tracking-[0.3em] uppercase">Wakeatte Shogi V1.20</p>
+
+        <div className="bg-[var(--bg)] py-3 flex justify-center border-t border-[var(--border)]">
+          <p className="text-[9px] text-[var(--ink-faint)] tracking-[0.3em] uppercase">Wakeatte Shogi V1.20</p>
         </div>
       </div>
     </div>

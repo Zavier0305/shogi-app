@@ -7,9 +7,124 @@
   --color-shogi-wood-grain: rgba(0, 0, 0, 0.05); /* 木目表現用 */
 }
 
+:root {
+  /* 「名刺」デザインシステム — ポートフォリオ全体と共通のトークン */
+  --bg: #faf5ec;
+  --surface: #fffdf9;
+  --ink: #2b2420;
+  --ink-soft: #7a6f61;
+  --ink-faint: #7c6c56;
+  --maroon: #7a0000;
+  --maroon-dark: #560000;
+  --gold: #a97a1f;
+  --gold-soft: #cda75a;
+  --border: #ddd0ba;
+
+  --font-heading: 'Shippori Mincho', serif;
+  --font-body: 'Noto Sans JP', sans-serif;
+}
+
 @layer base {
   html, body {
-    /* 背景色を無印店舗のようなオフホワイト・ライトグレー系に */
-    @apply h-full w-full m-0 p-0 text-[#333333] bg-[#faf8f5] font-sans antialiased;
+    @apply h-full w-full m-0 p-0 antialiased;
+    color: var(--ink);
+    font-family: var(--font-body);
+    background:
+      repeating-linear-gradient(135deg, rgba(169, 122, 31, 0.035) 0px, rgba(169, 122, 31, 0.035) 1px, transparent 1px, transparent 16px),
+      var(--bg);
   }
+
+  h1, h2, h3 {
+    font-family: var(--font-heading);
+  }
+}
+
+@layer components {
+  /* カード族: 名刺のような角丸なし＋隅飾りの枠 */
+  .meishi-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+  .meishi-card::before,
+  .meishi-card::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--gold);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  .meishi-card::before {
+    top: 10px;
+    left: 10px;
+    border-right: none;
+    border-bottom: none;
+  }
+  .meishi-card::after {
+    bottom: 10px;
+    right: 10px;
+    border-left: none;
+    border-top: none;
+  }
+
+  /* 隅飾りのない軽量パネル（持ち駒トレイなど、控えめに使う場所向け） */
+  .meishi-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+  }
+
+  /* ピル型ボタン */
+  .btn-pill,
+  .btn-pill-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    transition: transform 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease;
+  }
+  .btn-pill {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--ink-soft);
+    box-shadow: 0 2px 8px rgba(43, 36, 32, 0.06);
+  }
+  .btn-pill:hover:not(:disabled) {
+    transform: translateY(-2px);
+    border-color: var(--maroon);
+    color: var(--maroon);
+    box-shadow: 0 6px 16px rgba(43, 36, 32, 0.1);
+  }
+  .btn-pill-primary {
+    background: linear-gradient(180deg, var(--maroon), var(--maroon-dark));
+    color: #fff5e8;
+    border: 1px solid var(--maroon-dark);
+    box-shadow: 0 4px 14px rgba(122, 0, 0, 0.25);
+  }
+  .btn-pill-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(122, 0, 0, 0.3);
+  }
+  .btn-pill:disabled,
+  .btn-pill-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+}
+
+@keyframes meishi-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.meishi-fade-in {
+  animation: meishi-rise 0.45s ease-out both;
 }

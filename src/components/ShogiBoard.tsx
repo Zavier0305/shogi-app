@@ -326,20 +326,19 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
     
     return (
       <div className={clsx(
-        "flex flex-wrap gap-1.5 sm:gap-2 p-3 sm:p-4 transition-colors",
-        isMobile ? "min-h-[60px] border-x-0 sm:border-x border-y sm:rounded-sm" : "min-h-[90px] border rounded-sm",
-        "bg-white border-stone-200 shadow-sm",
-        (isMyTurn && shogi.turn === color) ? "ring-1 ring-[#7a0000]/30" : ""
+        "meishi-panel flex flex-wrap gap-1.5 sm:gap-2 p-3 sm:p-4 transition-colors shadow-sm",
+        isMobile ? "min-h-[60px] border-x-0 sm:border-x border-y" : "min-h-[90px]",
+        (isMyTurn && shogi.turn === color) ? "ring-1 ring-[var(--maroon)]/30" : ""
       )}>
-        <span className="text-stone-500 w-full text-[10px] sm:text-[11px] tracking-widest border-b border-stone-100 pb-1.5 sm:pb-2 mb-1.5 sm:mb-2 flex justify-between">
+        <span className="text-[var(--ink-soft)] w-full text-[10px] sm:text-[11px] tracking-widest border-b border-[var(--border)] pb-1.5 sm:pb-2 mb-1.5 sm:mb-2 flex justify-between">
           <span>{role === 'sente' ? (color === SColor.Black ? '先手 / あなた' : '後手 / 相手') :
            role === 'gote' ? (color === SColor.White ? '後手 / あなた' : '先手 / 相手') :
            (color === SColor.Black ? '先手' : '後手')}</span>
           <span>持ち駒</span>
         </span>
-        
+
         {!hasItems && (
-          <div className="w-full text-center text-[10px] sm:text-xs text-stone-300 py-1 sm:py-2">駒はありません</div>
+          <div className="w-full text-center text-[10px] sm:text-xs text-[var(--ink-faint)] py-1 sm:py-2">駒はありません</div>
         )}
 
         {Object.entries(hand).map(([kind, count]: [string, any]) => {
@@ -380,7 +379,7 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
         {/* 王手表示 */}
         {isCheck && !isCheckmate && (
            <div className="absolute top-[-30px] left-0 right-0 text-center animate-pulse z-10 pointer-events-none">
-              <span className="bg-[#7a0000] text-white px-4 py-1 text-sm font-bold tracking-[0.3em] rounded-sm shadow-md">王手</span>
+              <span className="bg-[var(--maroon)] text-white px-4 py-1 text-sm font-bold tracking-[0.3em] rounded-full shadow-md">王手</span>
            </div>
         )}
 
@@ -449,10 +448,10 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
 
           {/* 詰み（終了）オーバーレイ */}
           {isCheckmate && (
-            <div className="absolute inset-0 bg-[#faf8f5]/80 backdrop-blur-[2px] z-40 flex flex-col items-center justify-center">
-               <div className="bg-white px-8 py-6 border border-stone-200 shadow-lg text-center transform scale-110">
-                 <h2 className="text-2xl font-bold tracking-[0.2em] text-[#7a0000] mb-2 font-serif">詰み</h2>
-                 <p className="text-stone-600 text-sm tracking-widest">
+            <div className="absolute inset-0 bg-[var(--bg)]/80 backdrop-blur-[2px] z-40 flex flex-col items-center justify-center">
+               <div className="meishi-card meishi-fade-in px-8 py-6 shadow-lg text-center transform scale-110">
+                 <h2 className="text-2xl font-bold tracking-[0.2em] text-[var(--maroon)] mb-2">詰み</h2>
+                 <p className="text-[var(--ink-soft)] text-sm tracking-widest">
                    {winner === 'sente' ? '先手' : '後手'} ({winner === role ? 'あなた' : '相手'}) の勝利です
                  </p>
                </div>
@@ -462,19 +461,19 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
 
         {/* 成りダイアログ */}
         {promotionPrompt && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#faf8f5]/80 backdrop-blur-sm p-4 text-center">
-            <div className="bg-white border border-stone-200 p-6 sm:p-8 shadow-md flex flex-col items-center rounded-sm w-full max-w-xs">
-              <h3 className="text-base sm:text-lg text-stone-700 mb-6 sm:mb-8 tracking-widest">成りますか？</h3>
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-[var(--bg)]/80 backdrop-blur-sm p-4 text-center">
+            <div className="meishi-card meishi-fade-in p-6 sm:p-8 shadow-md flex flex-col items-center w-full max-w-xs">
+              <h3 className="text-base sm:text-lg text-[var(--ink)] mb-6 sm:mb-8 tracking-widest">成りますか？</h3>
               <div className="flex gap-4 w-full">
-                <button 
+                <button
                   onClick={() => handlePromotionSelect(true)}
-                  className="flex-1 px-4 py-3 bg-[#7a0000] hover:bg-[#660000] text-white tracking-[0.2em] text-sm transition"
+                  className="btn-pill-primary flex-1 px-4 py-3 tracking-[0.2em] text-sm"
                 >
                   成る
                 </button>
-                <button 
+                <button
                   onClick={() => handlePromotionSelect(false)}
-                  className="flex-1 px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-600 tracking-[0.2em] text-sm transition"
+                  className="btn-pill flex-1 px-4 py-3 tracking-[0.2em] text-sm"
                 >
                   成らず
                 </button>
@@ -491,51 +490,51 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
 
       {/* サイドパネル（情報・操作） */}
       <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-full sm:max-w-sm font-sans px-2 sm:px-0 xl:mt-0">
-        <div className="bg-white border border-stone-200 p-5 sm:p-6 shadow-sm rounded-sm relative">
-          
+        <div className="meishi-card p-5 sm:p-6 shadow-sm relative">
+
           {/* 投了提案ダイアログ */}
           {resignProposedBy && resignProposedBy !== clientId && (
-            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-4 text-center border border-yellow-400">
-               <p className="text-sm text-stone-700 tracking-widest mb-4">相手から<br/>投了・終了の提案が<br/>来ています</p>
+            <div className="absolute inset-0 bg-[var(--surface)]/95 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-4 text-center border border-[var(--gold)]">
+               <p className="text-sm text-[var(--ink)] tracking-widest mb-4">相手から<br/>投了・終了の提案が<br/>来ています</p>
                <div className="flex gap-2 w-full">
-                 <button onClick={() => replyResign(true)} className="flex-1 bg-[#7a0000] text-white py-2 text-xs tracking-widest shadow-sm">同意する</button>
-                 <button onClick={() => replyResign(false)} className="flex-1 bg-stone-100 text-stone-600 py-2 text-xs tracking-widest border border-stone-200">拒否する</button>
+                 <button onClick={() => replyResign(true)} className="btn-pill-primary flex-1 py-2 text-xs tracking-widest">同意する</button>
+                 <button onClick={() => replyResign(false)} className="btn-pill flex-1 py-2 text-xs tracking-widest">拒否する</button>
                </div>
             </div>
           )}
 
           {resignProposedBy && resignProposedBy === clientId && (
-            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-4 text-center border border-stone-200">
-               <p className="text-sm text-stone-500 tracking-widest">相手の応答を<br/>待っています...</p>
+            <div className="absolute inset-0 bg-[var(--surface)]/95 backdrop-blur-sm z-30 flex flex-col items-center justify-center p-4 text-center border border-[var(--border)]">
+               <p className="text-sm text-[var(--ink-soft)] tracking-widest">相手の応答を<br/>待っています...</p>
             </div>
           )}
 
           <div className="flex justify-between items-center mb-4 sm:mb-6">
-            <h2 className="text-xs sm:text-sm tracking-widest text-[#7a0000] font-bold">
+            <h2 className="text-xs sm:text-sm tracking-widest text-[var(--maroon)] font-bold">
               ID: {roomId}
             </h2>
-            <button 
+            <button
               onClick={copyUrl}
-              className="text-stone-400 hover:text-stone-600 transition flex items-center gap-1 text-[10px] sm:text-xs"
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] px-3 py-1 text-[var(--ink-faint)] hover:text-[var(--maroon)] hover:border-[var(--maroon)] transition text-[10px] sm:text-xs"
               title="URLをコピー"
             >
               <ClipboardCopy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               コピー
             </button>
           </div>
-          
+
           <div className="flex flex-col gap-3 sm:gap-4">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
-              <span className="text-[10px] sm:text-xs text-stone-400 tracking-wider">プレイヤー</span>
-              <span className="text-xs sm:text-sm font-medium text-stone-700">
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
+              <span className="text-[10px] sm:text-xs text-[var(--ink-faint)] tracking-wider">プレイヤー</span>
+              <span className="text-xs sm:text-sm font-medium text-[var(--ink)]">
                 {role === 'sente' ? '先手 ☗' : role === 'gote' ? '後手 ☖' : '観戦'}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] sm:text-xs text-stone-400 tracking-wider">手番</span>
+              <span className="text-[10px] sm:text-xs text-[var(--ink-faint)] tracking-wider">手番</span>
               <span className={clsx(
-                "px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs tracking-widest rounded-sm transition-colors",
-                shogi.turn === SColor.Black ? "bg-stone-800 text-white" : "bg-stone-200 text-stone-800",
+                "px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs tracking-widest rounded-full transition-colors",
+                shogi.turn === SColor.Black ? "bg-[var(--ink)] text-[var(--surface)]" : "bg-[var(--border)] text-[var(--ink)]",
                 !isMyTurn && role !== 'spectator' && "opacity-60",
                 isCheckmate && "hidden"
               )}>
@@ -560,10 +559,10 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
           )}
         </div>
 
-        <button 
+        <button
           onClick={proposeResign}
           disabled={role === 'spectator' || isCheckmate || !!resignProposedBy}
-          className="w-full flex items-center justify-center gap-2 py-3 sm:py-3.5 bg-white hover:bg-stone-50 border border-stone-200 text-stone-500 disabled:opacity-30 transition tracking-widest text-[10px] sm:text-xs rounded-sm mb-4"
+          className="btn-pill w-full flex items-center justify-center gap-2 py-3 sm:py-3.5 disabled:opacity-30 tracking-widest text-[10px] sm:text-xs mb-4"
         >
           <LogOut className="w-3 sm:w-3.5 h-3 sm:h-3.5" />
           <span>投了 / 終了を提案</span>
@@ -572,18 +571,18 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
 
       {/* 接続切れオーバーレイ */}
       {opponentLeft && !gameResult && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-white/95 backdrop-blur-sm animate-in fade-in duration-500">
-          <div className="p-8 sm:p-12 flex flex-col items-center">
-            <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center mb-6 border border-stone-100">
-               <div className="w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[var(--bg)]/95 backdrop-blur-sm animate-in fade-in duration-500">
+          <div className="meishi-card meishi-fade-in p-8 sm:p-12 flex flex-col items-center">
+            <div className="w-16 h-16 bg-[var(--bg)] rounded-full flex items-center justify-center mb-6 border border-[var(--border)]">
+               <div className="w-3 h-3 bg-[var(--maroon)] rounded-full animate-ping"></div>
             </div>
-            <h2 className="text-stone-800 text-lg sm:text-xl font-bold tracking-[0.2em] mb-4">相手の接続が切れました</h2>
-            <p className="text-stone-400 text-xs sm:text-sm tracking-widest mb-10 leading-relaxed text-center">
+            <h2 className="text-[var(--ink)] text-lg sm:text-xl font-bold tracking-[0.2em] mb-4">相手の接続が切れました</h2>
+            <p className="text-[var(--ink-faint)] text-xs sm:text-sm tracking-widest mb-10 leading-relaxed text-center">
               通信が遮断されたか、<br/>相手が退席しました。
             </p>
             <Link
               href="/"
-              className="px-10 py-3.5 bg-stone-800 hover:bg-black text-white text-xs tracking-[0.3em] font-bold rounded-sm transition-all shadow-md active:scale-95 uppercase"
+              className="btn-pill-primary px-10 py-3.5 text-xs tracking-[0.3em] font-bold active:scale-95 uppercase"
             >
               タイトルに戻る
             </Link>

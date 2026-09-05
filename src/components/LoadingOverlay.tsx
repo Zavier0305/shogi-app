@@ -4,7 +4,7 @@ import React from 'react';
 
 export default function LoadingOverlay() {
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm transition-opacity duration-300">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[var(--bg)]/90 backdrop-blur-sm transition-opacity duration-300">
       <div className="relative mb-8">
         {/* 将棋駒の形をしたアニメーション要素 */}
         <div className="w-16 h-20 bg-[#c29b4a] relative animate-shogi-wobble shadow-lg border-b-4 border-r-4 border-[#a6823d]"
@@ -12,20 +12,20 @@ export default function LoadingOverlay() {
                clipPath: 'polygon(50% 0%, 100% 25%, 85% 100%, 15% 100%, 0% 25%)'
              }}>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-2xl font-bold text-[#7a0000] opacity-80 font-serif rotate-[-5deg]">歩</span>
+            <span className="text-2xl font-bold text-[var(--maroon)] opacity-80 font-serif rotate-[-5deg]">歩</span>
           </div>
         </div>
-        
+
         {/* 装飾用の影 */}
         <div className="w-12 h-2 bg-black/5 rounded-[100%] absolute -bottom-4 left-1/2 -translate-x-1/2 blur-md animate-shogi-shadow"></div>
       </div>
-      
+
       <div className="flex flex-col items-center gap-2">
-        <p className="text-stone-600 text-sm tracking-[0.4em] font-bold animate-pulse">対局相手を探しています</p>
+        <p className="text-[var(--ink-soft)] text-sm tracking-[0.4em] font-bold animate-pulse">対局相手を探しています</p>
         <div className="flex gap-1">
-          <span className="w-1 h-1 bg-[#7a0000] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-          <span className="w-1 h-1 bg-[#7a0000] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-          <span className="w-1 h-1 bg-[#7a0000] rounded-full animate-bounce"></span>
+          <span className="w-1 h-1 bg-[var(--maroon)] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+          <span className="w-1 h-1 bg-[var(--maroon)] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+          <span className="w-1 h-1 bg-[var(--maroon)] rounded-full animate-bounce"></span>
         </div>
       </div>
 
