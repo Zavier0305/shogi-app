@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 
 export default function PrivacyPage() {
   return (
@@ -45,7 +46,7 @@ export default function PrivacyPage() {
           </section>
 
           <div className="pt-12 border-t border-stone-100 mt-12 text-center text-[10px] text-stone-400">
-            <a href="/" className="hover:text-stone-600 transition tracking-[0.2em] decoration-stone-200">HOMEに戻る</a>
+            <Link href="/" className="hover:text-stone-600 transition tracking-[0.2em] decoration-stone-200">HOMEに戻る</Link>
           </div>
         </div>
       </div>

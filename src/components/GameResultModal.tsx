@@ -2,15 +2,16 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Trophy, Home, ZoomIn } from 'lucide-react';
+import { Trophy, Home, ZoomIn, RotateCcw } from 'lucide-react';
 
 interface GameResultModalProps {
   winner: 'sente' | 'gote' | null;
   reason: '詰み' | '投了' | 'その他';
   onClose: () => void;
+  onRematch?: () => void;
 }
 
-export default function GameResultModal({ winner, reason, onClose }: GameResultModalProps) {
+export default function GameResultModal({ winner, reason, onClose, onRematch }: GameResultModalProps) {
   if (!winner) return null;
 
   return (
@@ -38,15 +39,29 @@ export default function GameResultModal({ winner, reason, onClose }: GameResultM
           </div>
 
           <div className="w-full space-y-3">
-            <Link 
+            {onRematch && (
+              <button
+                onClick={onRematch}
+                className="flex items-center justify-center gap-3 w-full bg-[#7a0000] hover:bg-[#660000] text-white py-3.5 rounded-sm transition-all duration-300 text-xs font-bold tracking-[0.2em] shadow-[0_4px_12px_rgba(122,0,0,0.15)] active:scale-[0.98]"
+              >
+                <RotateCcw className="w-4 h-4" />
+                もう一度対局する
+              </button>
+            )}
+
+            <Link
               href="/"
-              className="flex items-center justify-center gap-3 w-full bg-[#7a0000] hover:bg-[#660000] text-white py-3.5 rounded-sm transition-all duration-300 text-xs font-bold tracking-[0.2em] shadow-[0_4px_12px_rgba(122,0,0,0.15)] active:scale-[0.98]"
+              className={
+                onRematch
+                  ? "flex items-center justify-center gap-3 w-full bg-white hover:bg-stone-50 text-stone-500 border border-stone-200 py-3.5 rounded-sm transition-all duration-300 text-xs tracking-[0.2em] active:scale-[0.98]"
+                  : "flex items-center justify-center gap-3 w-full bg-[#7a0000] hover:bg-[#660000] text-white py-3.5 rounded-sm transition-all duration-300 text-xs font-bold tracking-[0.2em] shadow-[0_4px_12px_rgba(122,0,0,0.15)] active:scale-[0.98]"
+              }
             >
               <Home className="w-4 h-4" />
               タイトルに戻る
             </Link>
-            
-            <button 
+
+            <button
               onClick={onClose}
               className="flex items-center justify-center gap-3 w-full bg-white hover:bg-stone-50 text-stone-500 border border-stone-200 py-3.5 rounded-sm transition-all duration-300 text-xs tracking-[0.2em] active:scale-[0.98]"
             >

@@ -17,7 +17,9 @@ export async function createRoomAction() {
 
 export async function joinRoomAction(formData: FormData) {
   const roomId = formData.get('roomId') as string;
-  if (roomId && roomId.length === 6) {
+  // クライアント側のpattern="\d{6}"はJS無効化やフォーム直接送信で回避できるため、
+  // サーバー側でも同じ条件(6桁の数字のみ)を検証する
+  if (roomId && /^\d{6}$/.test(roomId)) {
     redirect(`/room/${roomId}`);
   }
 }

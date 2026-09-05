@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useShogiRoom } from '@/hooks/useShogiRoom';
-import { Shogi, Kind, Color as SColor } from 'shogi.js';
+import { Shogi, Color as SColor } from 'shogi.js';
 import { ClipboardCopy, LogOut } from 'lucide-react';
 import clsx from 'clsx';
+import Link from 'next/link';
 import GameResultModal from './GameResultModal';
 
 const KIND_KANJI: Record<string, string> = {
@@ -580,22 +581,23 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
             <p className="text-stone-400 text-xs sm:text-sm tracking-widest mb-10 leading-relaxed text-center">
               通信が遮断されたか、<br/>相手が退席しました。
             </p>
-            <a 
+            <Link
               href="/"
               className="px-10 py-3.5 bg-stone-800 hover:bg-black text-white text-xs tracking-[0.3em] font-bold rounded-sm transition-all shadow-md active:scale-95 uppercase"
             >
               タイトルに戻る
-            </a>
+            </Link>
           </div>
         </div>
       )}
 
       {/* Game Result Modal */}
       {showResultModal && localGameResult && (
-        <GameResultModal 
+        <GameResultModal
           winner={localGameResult.winner}
           reason={localGameResult.reason}
           onClose={() => setShowResultModal(false)}
+          onRematch={role !== 'spectator' ? resetRoom : undefined}
         />
       )}
 
