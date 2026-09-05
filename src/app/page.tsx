@@ -4,6 +4,7 @@ import { useTransition } from 'react';
 import Link from 'next/link';
 import { randomMatchAction, createRoomAction, joinRoomAction } from './actions';
 import LoadingOverlay from '@/components/LoadingOverlay';
+import TutorialGuide from '@/components/TutorialGuide';
 
 export default function Home() {
   const [isPending, startTransition] = useTransition();
@@ -29,6 +30,7 @@ export default function Home() {
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 text-[var(--ink)]">
       {isPending && <LoadingOverlay />}
+      <TutorialGuide />
 
       <div className="meishi-card meishi-fade-in max-w-sm w-full p-8 sm:p-10 shadow-[0_20px_60px_-15px_rgba(43,36,32,0.12)]">
         <div className="flex flex-col items-center mb-10">
