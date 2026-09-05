@@ -7,6 +7,7 @@ import { ClipboardCopy, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 import Link from 'next/link';
 import GameResultModal from './GameResultModal';
+import TutorialGuide from './TutorialGuide';
 
 const KIND_KANJI: Record<string, string> = {
   FU: '歩', KY: '香', KE: '桂', GI: '銀', KI: '金', KA: '角', HI: '飛', OU: '王',
@@ -367,7 +368,9 @@ export default function ShogiBoard({ roomId }: { roomId: string }) {
 
   return (
     <div className="flex flex-col xl:flex-row items-center xl:items-start justify-center gap-4 sm:gap-8 xl:gap-12 w-full max-w-full sm:max-w-7xl mx-auto pb-10">
-      
+
+      <TutorialGuide />
+
       {/* モバイル用: 相手の持ち駒 (盤面の上) */}
       <div className="w-full xl:hidden px-2 max-w-[500px]">
         {renderHand(role === 'gote' ? SColor.Black : SColor.White, true)}
