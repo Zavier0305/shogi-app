@@ -1,6 +1,7 @@
 'use client';
 
 import { useTransition } from 'react';
+import Link from 'next/link';
 import { randomMatchAction, createRoomAction, joinRoomAction } from './actions';
 import LoadingOverlay from '@/components/LoadingOverlay';
 
@@ -90,9 +91,9 @@ export default function Home() {
       {/* Footer Links */}
       <footer className="mt-12 flex flex-col items-center gap-4">
         <div className="flex gap-4 text-[10px] tracking-widest text-stone-400">
-          <a href="/terms" className="hover:text-stone-600 transition underline underline-offset-4 decoration-stone-200">利用規約</a>
-          <a href="/privacy" className="hover:text-stone-600 transition underline underline-offset-4 decoration-stone-200">プライバシー</a>
-          <a href="/release-notes" className="hover:text-stone-600 transition underline underline-offset-4 decoration-stone-200">リリノ</a>
+          <Link href="/terms" className="hover:text-stone-600 transition underline underline-offset-4 decoration-stone-200">利用規約</Link>
+          <Link href="/privacy" className="hover:text-stone-600 transition underline underline-offset-4 decoration-stone-200">プライバシー</Link>
+          <Link href="/release-notes" className="hover:text-stone-600 transition underline underline-offset-4 decoration-stone-200">リリノ</Link>
         </div>
         <p className="text-stone-400 text-[9px] tracking-[0.3em] opacity-40 uppercase">Wakeatte Shogi</p>
       </footer>
